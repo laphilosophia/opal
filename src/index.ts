@@ -128,7 +128,7 @@ export class Opal {
       this.fileSnapshot = await this.readFileSnapshot()
 
       if (needsMigration) {
-        await this.saveData(this.memoryCache as Record<string, unknown>)
+        await this.saveData(this.memoryCache!)
       }
     } catch (error: unknown) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {

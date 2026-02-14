@@ -83,6 +83,31 @@ const store = new Opal({
 })
 ```
 
+Ensures data is physically written to disk (useful for high-stakes environments):
+
+```typescript
+const store = new Opal({
+  appName: 'my-app',
+  encryptionKeyEnvVar: 'OPAL_KEY',
+})
+await store.load()
+```
+
+## Examples
+
+The [examples/](examples/) directory contains detailed demonstration scripts for advanced scenarios:
+
+- **[Key Lifecycle](examples/demo-key-lifecycle.ts):** Demonstrates multi-key fallback decryption and atomic key rotation.
+- **[DX & Safety](examples/demo-doctor-watch-import-export.ts):** Shows usage of the `doctor()` diagnostic report, `watch()` for live updates, and encrypted import/export.
+- **[Durability & Tests](examples/demo-deterministic-durability.ts):** Covers `fsync` durability modes, optimistic concurrency conflict detection, and deterministic test mode.
+
+Run any example with:
+
+```bash
+npm run build
+node --experimental-strip-types examples/filename.ts
+```
+
 ## API Reference
 
 ### `new Opal(options)`
