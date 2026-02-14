@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-02-14
+
+### Added
+
+- **Cross-process Locking**: Implemented a robust lockfile mechanism (`.lock`) to prevent concurrent write collisions between multiple processes.
+- **Lock Recovery**: Automatic detection and recovery from stale lockfiles (default 30s stale threshold).
+- **Key Rotation**: New `rotate(newMasterKey)` method allowing seamless transition to new master keys without data loss.
+- **Multi-key Decryption**: Support for multiple decryption keys via environmental key-sets (`encryptionKeySetEnvVar`) and multiple keyring `keyIds` for graceful key migration.
+- **Improved Configurability**: New options for tuning lock behavior (`lockStaleMs`, `lockTimeoutMs`, `lockRetryIntervalMs`).
+- **Architectural Refactoring**: Centralized constants and types into dedicated modules (`src/constants.ts`, `src/types.ts`) for better maintainability.
+
+### Changed
+
+- Refactored `Opal` and `Cipher` classes to use centralized constants and improved type safety.
+- Expanded `OpalOptions` with multi-key and locking configuration.
+
+### Removed
+
+- Deleted `src/cipher.types.ts` in favor of a unified `src/types.ts`.
+
 ## [1.1.0] - 2026-02-14
 
 ### Added
