@@ -43,7 +43,7 @@ export class Cipher {
   static decrypt(payload: EncryptedPayload, key: Buffer, expectedContext: string): string {
     if (payload.aad !== expectedContext) {
       throw new Error(
-        `Opal: Context Mismatch. Data belongs to '${payload.aad}', expected '${expectedContext}'`,
+        `Crypthold: Context Mismatch. Data belongs to '${payload.aad}', expected '${expectedContext}'`,
       )
     }
 

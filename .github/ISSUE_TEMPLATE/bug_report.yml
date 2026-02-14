@@ -1,5 +1,5 @@
 name: Bug Report
-description: File a bug report to help us improve Opal
+description: File a bug report to help us improve Crypthold
 body:
   - type: markdown
     attributes:
@@ -34,8 +34,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Opal Version
-      description: What version of Opal are you using? (Check package.json or npm list)
+      label: Crypthold Version
+      description: What version of Crypthold are you using? (Check package.json or npm list)
     validations:
       required: true
   - type: textarea

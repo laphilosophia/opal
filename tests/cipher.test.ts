@@ -26,7 +26,7 @@ describe('Cipher', () => {
 
   describe('encrypt/decrypt round-trip', () => {
     it('should encrypt and decrypt text correctly', () => {
-      const original = 'Hello, Opal!'
+      const original = 'Hello, Crypthold!'
       const payload = Cipher.encrypt(original, masterKey, context)
       const decrypted = Cipher.decrypt(payload, masterKey, context)
 

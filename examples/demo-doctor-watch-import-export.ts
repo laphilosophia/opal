@@ -6,21 +6,21 @@
 
 import * as os from 'os'
 import * as path from 'path'
-import { Opal } from '../dist/index.js'
+import { Crypthold } from '../dist/index.js'
 
-const appName = 'opal-demo-dx-safety'
-const baseDir = path.join(os.tmpdir(), 'opal-demo-dx-safety')
+const appName = 'crypthold-demo-dx-safety'
+const baseDir = path.join(os.tmpdir(), 'crypthold-demo-dx-safety')
 const configPath = path.join(baseDir, 'store.enc')
 const plainPath = path.join(baseDir, 'backup.json')
 const encryptedPath = path.join(baseDir, 'backup.enc')
 
 async function main() {
-  process.env.OPAL_DEMO_DX_KEY = 'a'.repeat(64)
+  process.env.CRYPTHOLD_DEMO_DX_KEY = 'a'.repeat(64)
 
-  const writer = new Opal({
+  const writer = new Crypthold({
     appName,
     configPath,
-    encryptionKeyEnvVar: 'OPAL_DEMO_DX_KEY',
+    encryptionKeyEnvVar: 'CRYPTHOLD_DEMO_DX_KEY',
   })
 
   await writer.load()
@@ -29,10 +29,10 @@ async function main() {
   const report = await writer.doctor()
   console.log('🩺 doctor():', report)
 
-  const watcher = new Opal({
+  const watcher = new Crypthold({
     appName,
     configPath,
-    encryptionKeyEnvVar: 'OPAL_DEMO_DX_KEY',
+    encryptionKeyEnvVar: 'CRYPTHOLD_DEMO_DX_KEY',
   })
   await watcher.load()
 
@@ -52,27 +52,27 @@ async function main() {
   await writer.exportEncrypted(encryptedPath)
   console.log('✅ Exported plain + encrypted backups')
 
-  const imported = new Opal({
+  const imported = new Crypthold({
     appName: `${appName}-imported`,
     configPath: path.join(baseDir, 'imported.enc'),
-    encryptionKeyEnvVar: 'OPAL_DEMO_DX_KEY',
+    encryptionKeyEnvVar: 'CRYPTHOLD_DEMO_DX_KEY',
   })
 
   await imported.load()
   await imported.importPlain(plainPath)
   console.log('✅ importPlain() result:', imported.getAll())
 
-  const importedEncrypted = new Opal({
+  const importedEncrypted = new Crypthold({
     appName,
     configPath: path.join(baseDir, 'imported-from-encrypted.enc'),
-    encryptionKeyEnvVar: 'OPAL_DEMO_DX_KEY',
+    encryptionKeyEnvVar: 'CRYPTHOLD_DEMO_DX_KEY',
   })
 
   await importedEncrypted.load()
   await importedEncrypted.importEncrypted(encryptedPath)
   console.log('✅ importEncrypted() result:', importedEncrypted.getAll())
 
-  delete process.env.OPAL_DEMO_DX_KEY
+  delete process.env.CRYPTHOLD_DEMO_DX_KEY
 }
 
 main().catch((error) => {

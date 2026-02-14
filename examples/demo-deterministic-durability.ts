@@ -7,21 +7,21 @@
 import * as fs from 'fs/promises'
 import * as os from 'os'
 import * as path from 'path'
-import { Opal, OpalError } from '../dist/index.js'
+import { Crypthold, CryptholdError } from '../dist/index.js'
 
-const appName = 'opal-demo-deterministic'
-const baseDir = path.join(os.tmpdir(), 'opal-demo-deterministic')
+const appName = 'crypthold-demo-deterministic'
+const baseDir = path.join(os.tmpdir(), 'crypthold-demo-deterministic')
 
 async function main() {
-  process.env.OPAL_DEMO_DET_KEY = 'b'.repeat(64)
+  process.env.CRYPTHOLD_DEMO_DET_KEY = 'b'.repeat(64)
 
   const now = 1_700_000_000_000
 
   const makeStore = (configPath: string) =>
-    new Opal({
+    new Crypthold({
       appName,
       configPath,
-      encryptionKeyEnvVar: 'OPAL_DEMO_DET_KEY',
+      encryptionKeyEnvVar: 'CRYPTHOLD_DEMO_DET_KEY',
       durability: 'fsync',
       deterministicSeed: 42,
       nowProvider: () => now,
@@ -44,15 +44,15 @@ async function main() {
   console.log('🎯 Deterministic ciphertext equal:', textA === textB)
 
   const conflictPath = path.join(baseDir, 'conflict.enc')
-  const s1 = new Opal({
+  const s1 = new Crypthold({
     appName,
     configPath: conflictPath,
-    encryptionKeyEnvVar: 'OPAL_DEMO_DET_KEY',
+    encryptionKeyEnvVar: 'CRYPTHOLD_DEMO_DET_KEY',
   })
-  const s2 = new Opal({
+  const s2 = new Crypthold({
     appName,
     configPath: conflictPath,
-    encryptionKeyEnvVar: 'OPAL_DEMO_DET_KEY',
+    encryptionKeyEnvVar: 'CRYPTHOLD_DEMO_DET_KEY',
   })
 
   await s1.load()
@@ -63,14 +63,14 @@ async function main() {
   try {
     await s2.set('writer', 'second')
   } catch (error) {
-    if (error instanceof OpalError && error.code === 'OPAL_CONFLICT') {
-      console.log('✅ Conflict detected as expected (OPAL_CONFLICT)')
+    if (error instanceof CryptholdError && error.code === 'CRYPTHOLD_CONFLICT') {
+      console.log('✅ Conflict detected as expected (CRYPTHOLD_CONFLICT)')
     } else {
       throw error
     }
   }
 
-  delete process.env.OPAL_DEMO_DET_KEY
+  delete process.env.CRYPTHOLD_DEMO_DET_KEY
 }
 
 main().catch((error) => {

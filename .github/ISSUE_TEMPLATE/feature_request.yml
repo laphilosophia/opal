@@ -1,10 +1,10 @@
 name: Feature Request
-description: Suggest an idea for Opal
+description: Suggest an idea for Crypthold
 body:
   - type: markdown
     attributes:
       value: |
-        We are always looking for ways to make Opal better!
+        We are always looking for ways to make Crypthold better!
   - type: textarea
     id: problem
     attributes:

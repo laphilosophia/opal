@@ -1,11 +1,11 @@
-# Opal
+# Crypthold
 
 Secure, hardened, atomic configuration store for Node.js applications.
 
-[![npm](https://img.shields.io/npm/v/@laphilosophia/opal.svg)](https://www.npmjs.com/package/@laphilosophia/opal)
+[![npm](https://img.shields.io/npm/v/crypthold.svg)](https://www.npmjs.com/package/crypthold)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache2.0-blue.svg)](LICENSE)
 
-Opal is a production-grade configuration substrate designed for high-integrity environments. It provides tamper-evident storage, cross-process safety, and seamless key management.
+Crypthold is a production-grade configuration substrate designed for high-integrity environments. It provides tamper-evident storage, cross-process safety, and seamless key management.
 
 ## Features
 
@@ -20,15 +20,15 @@ Opal is a production-grade configuration substrate designed for high-integrity e
 ## Installation
 
 ```bash
-npm install @laphilosophia/opal
+npm install crypthold
 ```
 
 ## Quick Start
 
 ```typescript
-import { Opal } from '@laphilosophia/opal'
+import { Crypthold } from 'crypthold'
 
-const store = new Opal({ appName: 'my-app' })
+const store = new Crypthold({ appName: 'my-app' })
 
 // Initialize (once) or Load
 await store.load()
@@ -77,7 +77,7 @@ const report = await store.doctor()
 Ensures data is physically written to disk (useful for high-stakes environments):
 
 ```typescript
-const store = new Opal({
+const store = new Crypthold({
   appName: 'my-app',
   durability: 'fsync',
 })
@@ -86,9 +86,9 @@ const store = new Opal({
 Ensures data is physically written to disk (useful for high-stakes environments):
 
 ```typescript
-const store = new Opal({
+const store = new Crypthold({
   appName: 'my-app',
-  encryptionKeyEnvVar: 'OPAL_KEY',
+  encryptionKeyEnvVar: 'CRYPTHOLD_KEY',
 })
 await store.load()
 ```
@@ -110,7 +110,7 @@ node --experimental-strip-types examples/filename.ts
 
 ## API Reference
 
-### `new Opal(options)`
+### `new Crypthold(options)`
 
 | Option                   | Type                  | Description                                              |
 | :----------------------- | :-------------------- | :------------------------------------------------------- |
@@ -138,13 +138,13 @@ node --experimental-strip-types examples/filename.ts
 
 ## Error Codes
 
-| Code                  | Description                                                   |
-| :-------------------- | :------------------------------------------------------------ |
-| `OPAL_INTEGRITY_FAIL` | Decryption or AAD verification failed (Tampering detected).   |
-| `OPAL_CONFLICT`       | File changed externally during a write (Hash/mtime mismatch). |
-| `OPAL_LOCK_TIMEOUT`   | Failed to acquire process lock within timeout.                |
-| `OPAL_FILE_TOO_LARGE` | Store exceeds `maxFileSizeBytes` limit.                       |
-| `OPAL_KEY_NOT_FOUND`  | Master key is missing from environment/keychain.              |
+| Code                       | Description                                                   |
+| :------------------------- | :------------------------------------------------------------ |
+| `CRYPTHOLD_INTEGRITY_FAIL` | Decryption or AAD verification failed (Tampering detected).   |
+| `CRYPTHOLD_CONFLICT`       | File changed externally during a write (Hash/mtime mismatch). |
+| `CRYPTHOLD_LOCK_TIMEOUT`   | Failed to acquire process lock within timeout.                |
+| `CRYPTHOLD_FILE_TOO_LARGE` | Store exceeds `maxFileSizeBytes` limit.                       |
+| `CRYPTHOLD_KEY_NOT_FOUND`  | Master key is missing from environment/keychain.              |
 
 ## Security
 

@@ -1,5 +1,5 @@
 {
-  "name": "@laphilosophia/opal",
+  "name": "crypthold",
   "version": "2.0.0",
   "description": "Secure encrypted config store for Node.js (HKDF, key rotation, lockfile concurrency, atomic writes).",
   "type": "module",
@@ -48,12 +48,12 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/laphilosophia/opal.git"
+    "url": "git+https://github.com/laphilosophia/crypthold.git"
   },
   "bugs": {
-    "url": "https://github.com/laphilosophia/opal/issues"
+    "url": "https://github.com/laphilosophia/crypthold/issues"
   },
-  "homepage": "https://github.com/laphilosophia/opal#readme",
+  "homepage": "https://github.com/laphilosophia/crypthold#readme",
   "publishConfig": {
     "access": "public"
   },

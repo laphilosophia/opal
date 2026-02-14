@@ -35,8 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Refactored `Opal` and `Cipher` classes to use centralized constants and improved type safety.
-- Expanded `OpalOptions` with multi-key and locking configuration.
+- Refactored `Crypthold` and `Cipher` classes to use centralized constants and improved type safety.
+- Expanded `CryptholdOptions` with multi-key and locking configuration.
 
 ### Removed
 
@@ -56,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Normalized error codes for robust programmatic handling (e.g., `OPAL_INTEGRITY_FAIL`, `OPAL_CONFLICT`, `OPAL_FILE_TOO_LARGE`)
+- Normalized error codes for robust programmatic handling (e.g., `CRYPTHOLD_INTEGRITY_FAIL`, `CRYPTHOLD_CONFLICT`, `CRYPTHOLD_FILE_TOO_LARGE`)
 
 ## [1.0.0] - 2026-01-14
 

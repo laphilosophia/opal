@@ -1,14 +1,14 @@
-# Contributing to Opal
+# Contributing to Crypthold
 
-Thank you for your interest in contributing to Opal! We welcome contributions from the community to help make Opal even better.
+Thank you for your interest in contributing to Crypthold! We welcome contributions from the community to help make Crypthold even better.
 
 ## Development Workflow
 
 1. **Fork the repository** on GitHub.
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/opal.git
-   cd opal
+   git clone https://github.com/YOUR_USERNAME/crypthold.git
+   cd crypthold
    ```
 3. **Install dependencies**:
    ```bash

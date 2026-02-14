@@ -1,4 +1,4 @@
-export interface OpalOptions {
+export interface CryptholdOptions {
   /** Application name, used for keychain service and AAD context */
   appName: string
   /** Custom path for encrypted config file */
@@ -50,15 +50,15 @@ export interface CipherEncryptOptions {
   iv?: Buffer
 }
 
-export interface OpalV1Header {
+export interface CryptholdV1Header {
   v: 1
   kdf: 'HKDF-SHA256'
   salt: string
   keyId: string
 }
 
-export interface OpalV1File {
-  header: OpalV1Header
+export interface CryptholdV1File {
+  header: CryptholdV1Header
   payload: EncryptedPayload
 }
 

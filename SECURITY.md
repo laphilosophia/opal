@@ -1,10 +1,10 @@
 # Security Policy
 
-Opal is a security-focused project. We take the security of our users and their data very seriously.
+Crypthold is a security-focused project. We take the security of our users and their data very seriously.
 
 ## Supported Versions
 
-Only the latest major version of Opal is supported for security updates.
+Only the latest major version of Crypthold is supported for security updates.
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -28,7 +28,7 @@ We will acknowledge receipt of your report within 48 hours and provide a timelin
 
 ## Security Guarantees
 
-Opal aims to provide:
+Crypthold aims to provide:
 
 - **Confidentiality:** AES-256-GCM encryption.
 - **Integrity:** SHA-256 content hashing and AAD binding.

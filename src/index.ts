@@ -11,37 +11,37 @@ import {
   DEFAULT_MAX_FILE_SIZE_BYTES,
 } from './constants.js'
 import type {
+  CryptholdOptions,
+  CryptholdV1File,
   DoctorReport,
   EncryptedPayload,
   FileSnapshot,
   KeyCandidate,
-  OpalOptions,
-  OpalV1File,
   WatchOptions,
 } from './types.js'
 
-export class OpalError extends Error {
+export class CryptholdError extends Error {
   constructor(
     message: string,
     public code: string,
   ) {
     super(message)
-    this.name = 'OpalError'
+    this.name = 'CryptholdError'
   }
 }
 
-export class Opal {
+export class Crypthold {
   private filePath: string
-  private options: OpalOptions
+  private options: CryptholdOptions
 
   // State Guard: null indicates not loaded
   private memoryCache: Record<string, unknown> | null = null
   private fileSnapshot: FileSnapshot | null = null
   private deterministicState: number | null = null
 
-  constructor(options: OpalOptions) {
+  constructor(options: CryptholdOptions) {
     if (!options.appName) {
-      throw new Error('Opal: appName is required')
+      throw new Error('Crypthold: appName is required')
     }
 
     this.options = options
@@ -83,14 +83,17 @@ export class Opal {
   }
 
   /**
-   * Initializes a new store. Throws OPAL_ALREADY_INIT if key exists.
+   * Initializes a new store. Throws CRYPTHOLD_ALREADY_INIT if key exists.
    */
   async init(): Promise<void> {
     try {
       await this.getPrimaryKey()
-      throw new OpalError('Store already initialized. Use load() instead.', 'OPAL_ALREADY_INIT')
+      throw new CryptholdError(
+        'Store already initialized. Use load() instead.',
+        'CRYPTHOLD_ALREADY_INIT',
+      )
     } catch (e: unknown) {
-      if (e instanceof OpalError && e.code === 'OPAL_KEY_NOT_FOUND') {
+      if (e instanceof CryptholdError && e.code === 'CRYPTHOLD_KEY_NOT_FOUND') {
         const newKey = this.randomBuffer(32).toString('hex')
         const entry = new AsyncEntry(this.options.appName, this.getPrimaryKeyId())
         await entry.setPassword(newKey)
@@ -103,7 +106,7 @@ export class Opal {
   }
 
   /**
-   * Loads existing store. Throws OPAL_KEY_NOT_FOUND if no key exists.
+   * Loads existing store. Throws CRYPTHOLD_KEY_NOT_FOUND if no key exists.
    */
   async load(): Promise<void> {
     const keyCandidates = await this.getKeyCandidates()
@@ -137,11 +140,14 @@ export class Opal {
         return
       }
 
-      if (error instanceof OpalError) {
+      if (error instanceof CryptholdError) {
         throw error
       }
 
-      throw new OpalError('Failed to verify encrypted store integrity.', 'OPAL_INTEGRITY_FAIL')
+      throw new CryptholdError(
+        'Failed to verify encrypted store integrity.',
+        'CRYPTHOLD_INTEGRITY_FAIL',
+      )
     }
   }
 
@@ -242,7 +248,10 @@ export class Opal {
     const serialized = JSON.stringify(this.memoryCache!, null, 2)
     const sizeLimit = this.options.maxFileSizeBytes ?? DEFAULT_MAX_FILE_SIZE_BYTES
     if (Buffer.byteLength(serialized, 'utf8') > sizeLimit) {
-      throw new OpalError('Plain export exceeds maximum allowed size.', 'OPAL_FILE_TOO_LARGE')
+      throw new CryptholdError(
+        'Plain export exceeds maximum allowed size.',
+        'CRYPTHOLD_FILE_TOO_LARGE',
+      )
     }
     await fs.writeFile(filePath, serialized, { mode: 0o600 })
   }
@@ -251,7 +260,10 @@ export class Opal {
     const sizeLimit = this.options.maxFileSizeBytes ?? DEFAULT_MAX_FILE_SIZE_BYTES
     const stat = await fs.stat(filePath)
     if (stat.size > sizeLimit) {
-      throw new OpalError('Plain import exceeds maximum allowed size.', 'OPAL_FILE_TOO_LARGE')
+      throw new CryptholdError(
+        'Plain import exceeds maximum allowed size.',
+        'CRYPTHOLD_FILE_TOO_LARGE',
+      )
     }
 
     const raw = await fs.readFile(filePath, 'utf-8')
@@ -269,7 +281,10 @@ export class Opal {
     const sizeLimit = this.options.maxFileSizeBytes ?? DEFAULT_MAX_FILE_SIZE_BYTES
     const stat = await fs.stat(filePath)
     if (stat.size > sizeLimit) {
-      throw new OpalError('Encrypted import exceeds maximum allowed size.', 'OPAL_FILE_TOO_LARGE')
+      throw new CryptholdError(
+        'Encrypted import exceeds maximum allowed size.',
+        'CRYPTHOLD_FILE_TOO_LARGE',
+      )
     }
 
     const raw = await fs.readFile(filePath, 'utf-8')
@@ -306,9 +321,9 @@ export class Opal {
     const keyBuffer = Buffer.isBuffer(input) ? Buffer.from(input) : Buffer.from(input, 'hex')
 
     if (keyBuffer.length !== 32) {
-      throw new OpalError(
+      throw new CryptholdError(
         'Invalid master key length. Key must be 64 hex characters (32 bytes).',
-        'OPAL_INVALID_KEY',
+        'CRYPTHOLD_INVALID_KEY',
       )
     }
 
@@ -356,9 +371,9 @@ export class Opal {
     const keyHex = (await entry.getPassword()) ?? null
 
     if (!keyHex) {
-      throw new OpalError(
+      throw new CryptholdError(
         `Master key not found for service: ${this.options.appName}. Run 'init()' first.`,
-        'OPAL_KEY_NOT_FOUND',
+        'CRYPTHOLD_KEY_NOT_FOUND',
       )
     }
 
@@ -460,7 +475,10 @@ export class Opal {
 
   private ensureLoaded(): void {
     if (this.memoryCache === null) {
-      throw new OpalError('Store is not loaded. Call await store.load() first.', 'OPAL_NOT_LOADED')
+      throw new CryptholdError(
+        'Store is not loaded. Call await store.load() first.',
+        'CRYPTHOLD_NOT_LOADED',
+      )
     }
   }
 
@@ -468,11 +486,14 @@ export class Opal {
     try {
       return Cipher.decrypt(payload, key, this.options.appName)
     } catch {
-      throw new OpalError('Failed to verify encrypted store integrity.', 'OPAL_INTEGRITY_FAIL')
+      throw new CryptholdError(
+        'Failed to verify encrypted store integrity.',
+        'CRYPTHOLD_INTEGRITY_FAIL',
+      )
     }
   }
 
-  private decryptV1WithCandidates(file: OpalV1File, candidates: KeyCandidate[]): string {
+  private decryptV1WithCandidates(file: CryptholdV1File, candidates: KeyCandidate[]): string {
     const orderedCandidates = [...candidates].sort((a, b) => {
       if (a.keyId === file.header.keyId) return -1
       if (b.keyId === file.header.keyId) return 1
@@ -487,13 +508,16 @@ export class Opal {
         )
         return this.decryptWithIntegrityNormalization(file.payload, encKey)
       } catch (error) {
-        if (!(error instanceof OpalError) || error.code !== 'OPAL_INTEGRITY_FAIL') {
+        if (!(error instanceof CryptholdError) || error.code !== 'CRYPTHOLD_INTEGRITY_FAIL') {
           throw error
         }
       }
     }
 
-    throw new OpalError('Failed to verify encrypted store integrity.', 'OPAL_INTEGRITY_FAIL')
+    throw new CryptholdError(
+      'Failed to verify encrypted store integrity.',
+      'CRYPTHOLD_INTEGRITY_FAIL',
+    )
   }
 
   private decryptLegacyWithCandidates(
@@ -504,13 +528,16 @@ export class Opal {
       try {
         return this.decryptWithIntegrityNormalization(payload, candidate.key)
       } catch (error) {
-        if (!(error instanceof OpalError) || error.code !== 'OPAL_INTEGRITY_FAIL') {
+        if (!(error instanceof CryptholdError) || error.code !== 'CRYPTHOLD_INTEGRITY_FAIL') {
           throw error
         }
       }
     }
 
-    throw new OpalError('Failed to verify encrypted store integrity.', 'OPAL_INTEGRITY_FAIL')
+    throw new CryptholdError(
+      'Failed to verify encrypted store integrity.',
+      'CRYPTHOLD_INTEGRITY_FAIL',
+    )
   }
 
   private async assertWithinMaxSize(): Promise<void> {
@@ -518,9 +545,9 @@ export class Opal {
     const stat = await fs.stat(this.filePath)
 
     if (stat.size > maxFileSize) {
-      throw new OpalError(
+      throw new CryptholdError(
         `Encrypted store exceeds maximum allowed size (${maxFileSize} bytes).`,
-        'OPAL_FILE_TOO_LARGE',
+        'CRYPTHOLD_FILE_TOO_LARGE',
       )
     }
   }
@@ -547,7 +574,7 @@ export class Opal {
     }
 
     if (this.fileSnapshot === null || current === null) {
-      throw new OpalError('Encrypted store changed since last load.', 'OPAL_CONFLICT')
+      throw new CryptholdError('Encrypted store changed since last load.', 'CRYPTHOLD_CONFLICT')
     }
 
     if (
@@ -555,16 +582,16 @@ export class Opal {
       this.fileSnapshot.size !== current.size ||
       this.fileSnapshot.contentHash !== current.contentHash
     ) {
-      throw new OpalError('Encrypted store changed since last load.', 'OPAL_CONFLICT')
+      throw new CryptholdError('Encrypted store changed since last load.', 'CRYPTHOLD_CONFLICT')
     }
   }
 
-  private isV1File(data: unknown): data is OpalV1File {
+  private isV1File(data: unknown): data is CryptholdV1File {
     if (!data || typeof data !== 'object') {
       return false
     }
 
-    const file = data as Partial<OpalV1File>
+    const file = data as Partial<CryptholdV1File>
 
     return (
       !!file.header &&
@@ -646,7 +673,7 @@ export class Opal {
         }
 
         if (this.nowMs() - startedAt >= timeoutMs) {
-          throw new OpalError('Timed out acquiring store lock.', 'OPAL_LOCK_TIMEOUT')
+          throw new CryptholdError('Timed out acquiring store lock.', 'CRYPTHOLD_LOCK_TIMEOUT')
         }
 
         await this.sleep(retryMs)
@@ -668,7 +695,11 @@ export class Opal {
         await this.saveDataOnce(data)
         return
       } catch (error) {
-        if (error instanceof OpalError && error.code === 'OPAL_CONFLICT' && attempt === 0) {
+        if (
+          error instanceof CryptholdError &&
+          error.code === 'CRYPTHOLD_CONFLICT' &&
+          attempt === 0
+        ) {
           await this.sleep(10)
           continue
         }
@@ -677,7 +708,7 @@ export class Opal {
       }
     }
 
-    throw new OpalError('Encrypted store changed since last load.', 'OPAL_CONFLICT')
+    throw new CryptholdError('Encrypted store changed since last load.', 'CRYPTHOLD_CONFLICT')
   }
 
   private async saveDataOnce(data: Record<string, unknown>): Promise<void> {
@@ -691,7 +722,7 @@ export class Opal {
       const salt = this.randomBuffer(16)
       const encKey = Cipher.deriveEncryptionKey(primary.key, salt)
 
-      const fileData: OpalV1File = {
+      const fileData: CryptholdV1File = {
         header: {
           v: 1,
           kdf: 'HKDF-SHA256',
@@ -774,4 +805,4 @@ export class Opal {
 
 // Re-export for convenience
 export { Cipher } from './cipher.js'
-export type { EncryptedPayload, OpalV1File } from './types.js'
+export type { CryptholdV1File, EncryptedPayload } from './types.js'
