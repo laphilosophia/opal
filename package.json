@@ -1,6 +1,6 @@
 {
   "name": "crypthold",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Secure encrypted config store for Node.js (HKDF, key rotation, lockfile concurrency, atomic writes).",
   "type": "module",
   "main": "./dist/index.cjs",
