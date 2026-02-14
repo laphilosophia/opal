@@ -2,7 +2,8 @@ import * as fs from 'fs/promises'
 import * as os from 'os'
 import * as path from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { Cipher, Crypthold, CryptholdError } from '../src/index.js'
+import { CryptholdError } from '../src/error.js'
+import { Cipher, Crypthold } from '../src/index.js'
 
 describe('Crypthold', () => {
   let tempDir: string

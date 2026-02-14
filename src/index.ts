@@ -783,4 +783,5 @@ export class Crypthold {
 
 // Re-export for convenience
 export { Cipher } from './cipher.js'
-export type { CryptholdError, CryptholdV1File, EncryptedPayload } from './types.js'
+export { CryptholdError } from './error.js'
+export type { CryptholdV1File, EncryptedPayload } from './types.js'
