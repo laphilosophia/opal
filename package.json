@@ -1,7 +1,7 @@
 {
   "name": "@laphilosophia/opal",
   "version": "2.0.0",
-  "description": "Secure, atomic, hybrid configuration store for Node.js applications",
+  "description": "Secure encrypted config store for Node.js (HKDF, key rotation, lockfile concurrency, atomic writes).",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -28,14 +28,24 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
+    "nodejs",
     "config",
-    "keychain",
+    "typescript",
     "encryption",
-    "secure",
-    "atomic"
+    "keychain",
+    "concurrency",
+    "hkdf",
+    "integrity",
+    "esm",
+    "cjs",
+    "lockfile",
+    "secure-storage",
+    "key-rotation",
+    "aes-256-gcm",
+    "atomic-writes"
   ],
-  "author": "Erdem Arslan",
-  "license": "MIT",
+  "author": "Erdem Arslan <me@erdem.work>",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/laphilosophia/opal.git"

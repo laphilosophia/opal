@@ -3,7 +3,7 @@
 Secure, hardened, atomic configuration store for Node.js applications.
 
 [![npm](https://img.shields.io/npm/v/@laphilosophia/opal.svg)](https://www.npmjs.com/package/@laphilosophia/opal)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache2.0-blue.svg)](LICENSE)
 
 Opal is a production-grade configuration substrate designed for high-integrity environments. It provides tamper-evident storage, cross-process safety, and seamless key management.
 
@@ -155,4 +155,4 @@ node --experimental-strip-types examples/filename.ts
 
 ## License
 
-MIT
+Apache-2.0
