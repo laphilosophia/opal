@@ -1,9 +1,6 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'crypto'
-import type { EncryptedPayload } from './cipher.types.js'
-
-const ALGORITHM = 'aes-256-gcm'
-const IV_LENGTH = 12 // 96-bit IV (NIST Recommended for GCM)
-const ENC_KEY_INFO = 'opal:v1:enc'
+import { ALGORITHM, ENC_KEY_INFO, IV_LENGTH } from './constants.js'
+import type { EncryptedPayload } from './types.js'
 
 export class Cipher {
   static deriveEncryptionKey(masterKey: Buffer, salt: Buffer): Buffer {

@@ -210,6 +210,142 @@ describe('Opal', () => {
       await expect(storeB.set('b', 2)).rejects.toMatchObject({ code: 'OPAL_CONFLICT' })
     })
 
+    it('should wait for lock release and then persist write', async () => {
+      const appName = 'parallel-lock-app'
+      const store = new Opal({
+        appName,
+        configPath,
+        encryptionKeyEnvVar: 'OPAL_TEST_KEY',
+        lockTimeoutMs: 2_000,
+        lockRetryIntervalMs: 25,
+      })
+
+      await store.load()
+
+      const lockPath = `${configPath}.lock`
+      await fs.writeFile(lockPath, JSON.stringify({ pid: process.pid, ts: Date.now() }))
+
+      const releasePromise = (async () => {
+        await new Promise((resolve) => setTimeout(resolve, 250))
+        await fs.unlink(lockPath)
+      })()
+
+      await store.set('locked', true)
+      await releasePromise
+
+      const verifier = new Opal({ appName, configPath, encryptionKeyEnvVar: 'OPAL_TEST_KEY' })
+      await verifier.load()
+      expect(verifier.get('locked')).toBe(true)
+    })
+
+    it('should recover from stale lockfile', async () => {
+      const appName = 'stale-lock-app'
+      const store = new Opal({
+        appName,
+        configPath,
+        encryptionKeyEnvVar: 'OPAL_TEST_KEY',
+        lockStaleMs: 50,
+        lockTimeoutMs: 500,
+        lockRetryIntervalMs: 20,
+      })
+
+      await store.load()
+
+      const staleLockPath = `${configPath}.lock`
+      await fs.writeFile(staleLockPath, JSON.stringify({ pid: 999999, ts: Date.now() - 10_000 }))
+
+      await store.set('recovered', 'yes')
+
+      const verifier = new Opal({ appName, configPath, encryptionKeyEnvVar: 'OPAL_TEST_KEY' })
+      await verifier.load()
+      expect(verifier.get('recovered')).toBe('yes')
+    })
+
+    it('should rotate to new keyId without data loss', async () => {
+      const appName = 'rotate-app'
+      process.env.OPAL_ROTATE_KEY = '1'.repeat(64)
+      process.env.OPAL_ROTATE_KEYS = `v1:${process.env.OPAL_ROTATE_KEY}`
+
+      const storeV1 = new Opal({
+        appName,
+        configPath,
+        encryptionKeyEnvVar: 'OPAL_ROTATE_KEY',
+        encryptionKeySetEnvVar: 'OPAL_ROTATE_KEYS',
+        keyId: 'v1',
+      })
+
+      await storeV1.load()
+      await storeV1.set('token', 'alpha')
+
+      const rotatedHex = '2'.repeat(64)
+      process.env.OPAL_ROTATE_KEYS = `v2:${rotatedHex},v1:${process.env.OPAL_ROTATE_KEY}`
+
+      const storeV2 = new Opal({
+        appName,
+        configPath,
+        encryptionKeyEnvVar: 'OPAL_ROTATE_KEY',
+        encryptionKeySetEnvVar: 'OPAL_ROTATE_KEYS',
+        keyId: 'v2',
+      })
+
+      await storeV2.load()
+      await storeV2.rotate(rotatedHex)
+
+      const written = JSON.parse(await fs.readFile(configPath, 'utf-8'))
+      expect(written.header.keyId).toBe('v2')
+
+      const verify = new Opal({
+        appName,
+        configPath,
+        encryptionKeyEnvVar: 'OPAL_ROTATE_KEY',
+        encryptionKeySetEnvVar: 'OPAL_ROTATE_KEYS',
+        keyId: 'v2',
+      })
+
+      await verify.load()
+      expect(verify.get('token')).toBe('alpha')
+
+      delete process.env.OPAL_ROTATE_KEY
+      delete process.env.OPAL_ROTATE_KEYS
+    })
+
+    it('should decrypt with old key from key-set when primary key differs', async () => {
+      const appName = 'multikey-app'
+      const oldKey = '3'.repeat(64)
+      const newKey = '4'.repeat(64)
+
+      process.env.OPAL_MULTI_KEY = oldKey
+      process.env.OPAL_MULTI_KEYS = `old:${oldKey}`
+
+      const writer = new Opal({
+        appName,
+        configPath,
+        encryptionKeyEnvVar: 'OPAL_MULTI_KEY',
+        encryptionKeySetEnvVar: 'OPAL_MULTI_KEYS',
+        keyId: 'old',
+      })
+
+      await writer.load()
+      await writer.set('legacy', true)
+
+      process.env.OPAL_MULTI_KEY = newKey
+      process.env.OPAL_MULTI_KEYS = `new:${newKey},old:${oldKey}`
+
+      const reader = new Opal({
+        appName,
+        configPath,
+        encryptionKeyEnvVar: 'OPAL_MULTI_KEY',
+        encryptionKeySetEnvVar: 'OPAL_MULTI_KEYS',
+        keyId: 'new',
+      })
+
+      await reader.load()
+      expect(reader.get('legacy')).toBe(true)
+
+      delete process.env.OPAL_MULTI_KEY
+      delete process.env.OPAL_MULTI_KEYS
+    })
+
     it('should write store with unix-safe 0600 permissions', async () => {
       const store = new Opal({
         appName: 'perm-app',
