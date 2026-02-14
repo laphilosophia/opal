@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-02-14
+
+### Added
+
+- **Hardened Optimistic Concurrency**: Stricter conflict detection using SHA-256 content hashing in addition to file metadata.
+- **Reactive Watch API**: New `watch()` method for live, event-driven configuration updates.
+- **Doctor Diagnostic tool**: New `doctor()` API providing a comprehensive report on key presence, integrity, permissions, and lock status.
+- **Data Mobility**: Robust `import` and `export` utilities for both encrypted and plain JSON data with built-in size guards.
+- **Improved Durability**: Optional `durability: "fsync"` mode for high-integrity atomic writes.
+- **Testing Reliability**: Native support for deterministic seed mode and custom clock providers for repeatable test scenarios.
+- **Resilience**: Integrated automatic conflict retry logic (one-phase) for high-concurrency environments.
+
+### Changed
+
+- Transitioned to "Hardened" core architecture.
+- Improved error messaging for conflict and size violations.
+
 ## [1.2.0] - 2026-02-14
 
 ### Added

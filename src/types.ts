@@ -17,8 +17,26 @@ export interface OpalOptions {
   lockTimeoutMs?: number
   /** Delay between lock retries in milliseconds */
   lockRetryIntervalMs?: number
+  /** Optional durability mode for atomic writes */
+  durability?: 'normal' | 'fsync'
   /** Additional key IDs to check in keyring for decrypt fallback */
   keyIds?: string[]
+  /** Enable deterministic mode for tests */
+  deterministicSeed?: number
+  /** Override clock source for deterministic tests */
+  nowProvider?: () => number
+}
+
+export interface DoctorReport {
+  keyPresent: boolean
+  integrityOk: boolean
+  permissionsOk: boolean | null
+  lockExists: boolean
+  lockStale: boolean
+}
+
+export interface WatchOptions {
+  debounceMs?: number
 }
 
 export interface EncryptedPayload {
@@ -26,6 +44,10 @@ export interface EncryptedPayload {
   tag: string
   content: string
   aad: string
+}
+
+export interface CipherEncryptOptions {
+  iv?: Buffer
 }
 
 export interface OpalV1Header {
@@ -43,6 +65,7 @@ export interface OpalV1File {
 export interface FileSnapshot {
   mtimeMs: number
   size: number
+  contentHash: string
 }
 
 export interface KeyCandidate {

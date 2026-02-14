@@ -1,5 +1,6 @@
 import { AsyncEntry } from '@napi-rs/keyring'
-import { randomBytes } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
+import * as fsSync from 'fs'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { Cipher } from './cipher.js'
@@ -10,11 +11,13 @@ import {
   DEFAULT_MAX_FILE_SIZE_BYTES,
 } from './constants.js'
 import type {
+  DoctorReport,
   EncryptedPayload,
   FileSnapshot,
   KeyCandidate,
   OpalOptions,
   OpalV1File,
+  WatchOptions,
 } from './types.js'
 
 export class OpalError extends Error {
@@ -34,6 +37,7 @@ export class Opal {
   // State Guard: null indicates not loaded
   private memoryCache: Record<string, unknown> | null = null
   private fileSnapshot: FileSnapshot | null = null
+  private deterministicState: number | null = null
 
   constructor(options: OpalOptions) {
     if (!options.appName) {
@@ -42,9 +46,40 @@ export class Opal {
 
     this.options = options
 
+    if (typeof options.deterministicSeed === 'number') {
+      this.deterministicState = options.deterministicSeed >>> 0
+    }
+
     const homeDir = process.env.HOME || process.env.USERPROFILE || '.'
     this.filePath =
       options.configPath || path.join(homeDir, '.config', options.appName, 'store.enc')
+  }
+
+  private nowMs(): number {
+    if (this.options.nowProvider) {
+      return this.options.nowProvider()
+    }
+
+    return Date.now()
+  }
+
+  private randomBuffer(length: number): Buffer {
+    if (this.deterministicState === null) {
+      return randomBytes(length)
+    }
+
+    const out = Buffer.alloc(length)
+    let state = this.deterministicState
+
+    for (let i = 0; i < length; i += 1) {
+      state ^= state << 13
+      state ^= state >>> 17
+      state ^= state << 5
+      out[i] = state & 0xff
+    }
+
+    this.deterministicState = state >>> 0
+    return out
   }
 
   /**
@@ -56,7 +91,7 @@ export class Opal {
       throw new OpalError('Store already initialized. Use load() instead.', 'OPAL_ALREADY_INIT')
     } catch (e: unknown) {
       if (e instanceof OpalError && e.code === 'OPAL_KEY_NOT_FOUND') {
-        const newKey = randomBytes(32).toString('hex')
+        const newKey = this.randomBuffer(32).toString('hex')
         const entry = new AsyncEntry(this.options.appName, this.getPrimaryKeyId())
         await entry.setPassword(newKey)
         this.memoryCache = {}
@@ -108,6 +143,149 @@ export class Opal {
 
       throw new OpalError('Failed to verify encrypted store integrity.', 'OPAL_INTEGRITY_FAIL')
     }
+  }
+
+  async doctor(): Promise<DoctorReport> {
+    const lockPath = this.getLockPath()
+    const staleMs = this.options.lockStaleMs ?? DEFAULT_LOCK_STALE_MS
+
+    let keyPresent = false
+    try {
+      const candidates = await this.getKeyCandidates()
+      keyPresent = candidates.length > 0
+    } catch {
+      keyPresent = false
+    }
+
+    let integrityOk = false
+    try {
+      const candidates = await this.getKeyCandidates()
+      await this.assertWithinMaxSize()
+      const raw = await fs.readFile(this.filePath, 'utf-8')
+      const parsed = JSON.parse(raw) as unknown
+      if (this.isV1File(parsed)) {
+        this.decryptV1WithCandidates(parsed, candidates)
+      } else {
+        this.decryptLegacyWithCandidates(parsed as EncryptedPayload, candidates)
+      }
+      integrityOk = true
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        integrityOk = true
+      }
+    }
+
+    let permissionsOk: boolean | null = null
+    if (process.platform !== 'win32') {
+      try {
+        const stat = await fs.stat(this.filePath)
+        permissionsOk = (stat.mode & 0o777) <= 0o600
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          permissionsOk = null
+        }
+      }
+    }
+
+    let lockExists = false
+    let lockStale = false
+    try {
+      const meta = await this.readLockMeta(lockPath)
+      if (meta) {
+        lockExists = true
+        if (typeof meta.ts === 'number') {
+          lockStale = this.nowMs() - meta.ts > staleMs
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return { keyPresent, integrityOk, permissionsOk, lockExists, lockStale }
+  }
+
+  watch(onChange: (data: Record<string, unknown>) => void, options?: WatchOptions): () => void {
+    const dir = path.dirname(this.filePath)
+    const base = path.basename(this.filePath)
+    const debounceMs = options?.debounceMs ?? 100
+    let timer: NodeJS.Timeout | null = null
+
+    const watcher = fsSync.watch(dir, async (_event, filename) => {
+      if (filename && filename.toString() !== base) {
+        return
+      }
+
+      if (timer) {
+        clearTimeout(timer)
+      }
+
+      timer = setTimeout(async () => {
+        try {
+          await this.load()
+          onChange(this.getAll())
+        } catch {
+          // ignore watch callback errors
+        }
+      }, debounceMs)
+    })
+
+    return () => {
+      if (timer) {
+        clearTimeout(timer)
+      }
+      watcher.close()
+    }
+  }
+
+  async exportPlain(filePath: string): Promise<void> {
+    this.ensureLoaded()
+    const serialized = JSON.stringify(this.memoryCache!, null, 2)
+    const sizeLimit = this.options.maxFileSizeBytes ?? DEFAULT_MAX_FILE_SIZE_BYTES
+    if (Buffer.byteLength(serialized, 'utf8') > sizeLimit) {
+      throw new OpalError('Plain export exceeds maximum allowed size.', 'OPAL_FILE_TOO_LARGE')
+    }
+    await fs.writeFile(filePath, serialized, { mode: 0o600 })
+  }
+
+  async importPlain(filePath: string): Promise<void> {
+    const sizeLimit = this.options.maxFileSizeBytes ?? DEFAULT_MAX_FILE_SIZE_BYTES
+    const stat = await fs.stat(filePath)
+    if (stat.size > sizeLimit) {
+      throw new OpalError('Plain import exceeds maximum allowed size.', 'OPAL_FILE_TOO_LARGE')
+    }
+
+    const raw = await fs.readFile(filePath, 'utf-8')
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    this.memoryCache = parsed
+    await this.saveData(parsed)
+  }
+
+  async exportEncrypted(filePath: string): Promise<void> {
+    await this.assertWithinMaxSize()
+    await fs.copyFile(this.filePath, filePath)
+  }
+
+  async importEncrypted(filePath: string): Promise<void> {
+    const sizeLimit = this.options.maxFileSizeBytes ?? DEFAULT_MAX_FILE_SIZE_BYTES
+    const stat = await fs.stat(filePath)
+    if (stat.size > sizeLimit) {
+      throw new OpalError('Encrypted import exceeds maximum allowed size.', 'OPAL_FILE_TOO_LARGE')
+    }
+
+    const raw = await fs.readFile(filePath, 'utf-8')
+    const parsed = JSON.parse(raw) as unknown
+    const candidates = await this.getKeyCandidates()
+
+    let decryptedJson: string
+    if (this.isV1File(parsed)) {
+      decryptedJson = this.decryptV1WithCandidates(parsed, candidates)
+    } else {
+      decryptedJson = this.decryptLegacyWithCandidates(parsed as EncryptedPayload, candidates)
+    }
+
+    const data = JSON.parse(decryptedJson) as Record<string, unknown>
+    this.memoryCache = data
+    await this.saveData(data)
   }
 
   async rotate(newMasterKey?: Buffer | string): Promise<void> {
@@ -350,7 +528,9 @@ export class Opal {
   private async readFileSnapshot(): Promise<FileSnapshot | null> {
     try {
       const stat = await fs.stat(this.filePath)
-      return { mtimeMs: stat.mtimeMs, size: stat.size }
+      const content = await fs.readFile(this.filePath)
+      const contentHash = createHash('sha256').update(content).digest('hex')
+      return { mtimeMs: stat.mtimeMs, size: stat.size, contentHash }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return null
@@ -370,7 +550,11 @@ export class Opal {
       throw new OpalError('Encrypted store changed since last load.', 'OPAL_CONFLICT')
     }
 
-    if (this.fileSnapshot.mtimeMs !== current.mtimeMs || this.fileSnapshot.size !== current.size) {
+    if (
+      this.fileSnapshot.mtimeMs !== current.mtimeMs ||
+      this.fileSnapshot.size !== current.size ||
+      this.fileSnapshot.contentHash !== current.contentHash
+    ) {
       throw new OpalError('Encrypted store changed since last load.', 'OPAL_CONFLICT')
     }
   }
@@ -424,7 +608,7 @@ export class Opal {
 
   private async acquireLock(): Promise<() => Promise<void>> {
     const lockPath = this.getLockPath()
-    const startedAt = Date.now()
+    const startedAt = this.nowMs()
     const staleMs = this.options.lockStaleMs ?? DEFAULT_LOCK_STALE_MS
     const timeoutMs = this.options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS
     const retryMs = this.options.lockRetryIntervalMs ?? DEFAULT_LOCK_RETRY_INTERVAL_MS
@@ -433,7 +617,7 @@ export class Opal {
       try {
         const handle = await fs.open(lockPath, 'wx', 0o600)
         try {
-          await handle.writeFile(JSON.stringify({ pid: process.pid, ts: Date.now() }))
+          await handle.writeFile(JSON.stringify({ pid: process.pid, ts: this.nowMs() }))
         } finally {
           await handle.close()
         }
@@ -455,12 +639,12 @@ export class Opal {
         const meta = await this.readLockMeta(lockPath)
         const lockTs = meta?.ts
 
-        if (typeof lockTs === 'number' && Date.now() - lockTs > staleMs) {
+        if (typeof lockTs === 'number' && this.nowMs() - lockTs > staleMs) {
           await fs.unlink(lockPath).catch(() => {})
           continue
         }
 
-        if (Date.now() - startedAt >= timeoutMs) {
+        if (this.nowMs() - startedAt >= timeoutMs) {
           throw new OpalError('Timed out acquiring store lock.', 'OPAL_LOCK_TIMEOUT')
         }
 
@@ -478,6 +662,24 @@ export class Opal {
    * Prevents corruption if process crashes during write.
    */
   private async saveData(data: Record<string, unknown>): Promise<void> {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await this.saveDataOnce(data)
+        return
+      } catch (error) {
+        if (error instanceof OpalError && error.code === 'OPAL_CONFLICT' && attempt === 0) {
+          await this.sleep(10)
+          continue
+        }
+
+        throw error
+      }
+    }
+
+    throw new OpalError('Encrypted store changed since last load.', 'OPAL_CONFLICT')
+  }
+
+  private async saveDataOnce(data: Record<string, unknown>): Promise<void> {
     const releaseLock = await this.acquireLock()
 
     try {
@@ -485,7 +687,7 @@ export class Opal {
       await this.assertUnchangedSinceSnapshot()
 
       const jsonStr = JSON.stringify(data)
-      const salt = Cipher.generateSalt()
+      const salt = this.randomBuffer(16)
       const encKey = Cipher.deriveEncryptionKey(primary.key, salt)
 
       const fileData: OpalV1File = {
@@ -495,11 +697,13 @@ export class Opal {
           salt: salt.toString('hex'),
           keyId: primary.keyId,
         },
-        payload: Cipher.encrypt(jsonStr, encKey, this.options.appName),
+        payload: Cipher.encrypt(jsonStr, encKey, this.options.appName, {
+          iv: this.randomBuffer(12),
+        }),
       }
 
       const dir = path.dirname(this.filePath)
-      const tempPath = `${this.filePath}.${randomBytes(4).toString('hex')}.tmp`
+      const tempPath = `${this.filePath}.${this.randomBuffer(4).toString('hex')}.tmp`
 
       await fs.mkdir(dir, { recursive: true })
 
@@ -516,7 +720,22 @@ export class Opal {
         await fs.writeFile(tempPath, JSON.stringify(fileData, null, 2), {
           mode: this.getWritableMode(existingMode),
         })
+
+        if (this.options.durability === 'fsync') {
+          const tempHandle = await fs.open(tempPath, 'r')
+          try {
+            await tempHandle.sync()
+          } finally {
+            await tempHandle.close()
+          }
+        }
+
         await fs.rename(tempPath, this.filePath)
+
+        if (this.options.durability === 'fsync') {
+          await this.fsyncDirectoryBestEffort(dir)
+        }
+
         this.fileSnapshot = await this.readFileSnapshot()
       } catch (error) {
         await fs.unlink(tempPath).catch(() => {})
@@ -524,6 +743,19 @@ export class Opal {
       }
     } finally {
       await releaseLock()
+    }
+  }
+
+  private async fsyncDirectoryBestEffort(dir: string): Promise<void> {
+    try {
+      const dirHandle = await fs.open(dir, 'r')
+      try {
+        await dirHandle.sync()
+      } finally {
+        await dirHandle.close()
+      }
+    } catch {
+      // best effort only
     }
   }
 }

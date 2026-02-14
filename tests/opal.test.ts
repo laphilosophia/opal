@@ -346,6 +346,144 @@ describe('Opal', () => {
       delete process.env.OPAL_MULTI_KEYS
     })
 
+    it('should detect external change using content hash even when mtime is restored', async () => {
+      const appName = 'hash-conflict-app'
+      const store = new Opal({ appName, configPath, encryptionKeyEnvVar: 'OPAL_TEST_KEY' })
+
+      await store.load()
+      await store.set('base', true)
+
+      const before = await fs.stat(configPath)
+      const raw = await fs.readFile(configPath, 'utf-8')
+      const pivot = Math.max(1, Math.floor(raw.length / 2))
+      const replacement = raw[pivot] === 'a' ? 'b' : 'a'
+      const tampered = `${raw.slice(0, pivot)}${replacement}${raw.slice(pivot + 1)}`
+
+      await fs.writeFile(configPath, tampered)
+      await fs.utimes(configPath, before.atime, before.mtime)
+
+      await expect(store.set('afterTamper', true)).rejects.toMatchObject({ code: 'OPAL_CONFLICT' })
+    })
+
+    it('should retry once and then abort on persistent conflict', async () => {
+      const appName = 'retry-conflict-app'
+      const store = new Opal({ appName, configPath, encryptionKeyEnvVar: 'OPAL_TEST_KEY' })
+
+      await store.load()
+      await store.set('base', 1)
+
+      const originalRead = (store as any).readFileSnapshot.bind(store)
+      let calls = 0
+      ;(store as any).readFileSnapshot = async () => {
+        calls += 1
+        const snapshot = await originalRead()
+        if (!snapshot) {
+          return snapshot
+        }
+
+        return { ...snapshot, contentHash: `${snapshot.contentHash}-conflict` }
+      }
+
+      await expect(store.set('next', 2)).rejects.toMatchObject({ code: 'OPAL_CONFLICT' })
+      expect(calls).toBeGreaterThanOrEqual(2)
+    })
+
+    it('should provide doctor report with key and integrity status', async () => {
+      const appName = 'doctor-app'
+      const store = new Opal({ appName, configPath, encryptionKeyEnvVar: 'OPAL_TEST_KEY' })
+
+      await store.load()
+      await store.set('ok', true)
+
+      const report = await store.doctor()
+      expect(report.keyPresent).toBe(true)
+      expect(report.integrityOk).toBe(true)
+      expect(report.lockStale).toBe(false)
+    })
+
+    it('should support encrypted export/import with size guard', async () => {
+      const appName = 'import-export-app'
+      const source = new Opal({ appName, configPath, encryptionKeyEnvVar: 'OPAL_TEST_KEY' })
+      await source.load()
+      await source.set('secret', 'value')
+
+      const encryptedPath = path.join(tempDir, 'backup.enc')
+      await source.exportEncrypted(encryptedPath)
+
+      const targetPath = path.join(tempDir, 'target.enc')
+      const target = new Opal({
+        appName,
+        configPath: targetPath,
+        encryptionKeyEnvVar: 'OPAL_TEST_KEY',
+      })
+      await target.load()
+      await target.importEncrypted(encryptedPath)
+      expect(target.get('secret')).toBe('value')
+
+      const tooLargePath = path.join(tempDir, 'too-large.enc')
+      await fs.writeFile(tooLargePath, 'x'.repeat(4096))
+      const limited = new Opal({
+        appName,
+        configPath: targetPath,
+        encryptionKeyEnvVar: 'OPAL_TEST_KEY',
+        maxFileSizeBytes: 128,
+      })
+      await expect(limited.importEncrypted(tooLargePath)).rejects.toMatchObject({
+        code: 'OPAL_FILE_TOO_LARGE',
+      })
+    })
+
+    it('should notify watch subscribers on external change', async () => {
+      const appName = 'watch-app'
+      const writer = new Opal({ appName, configPath, encryptionKeyEnvVar: 'OPAL_TEST_KEY' })
+      const watcherStore = new Opal({ appName, configPath, encryptionKeyEnvVar: 'OPAL_TEST_KEY' })
+
+      await writer.load()
+      await watcherStore.load()
+
+      const changed = new Promise<Record<string, unknown>>((resolve) => {
+        const stop = watcherStore.watch(
+          (data) => {
+            stop()
+            resolve(data)
+          },
+          { debounceMs: 20 },
+        )
+      })
+
+      await writer.set('k', 'v')
+      const data = await changed
+      expect(data.k).toBe('v')
+    })
+
+    it('should generate deterministic ciphertext with seeded mode and fake clock', async () => {
+      const appName = 'deterministic-app'
+      const baseNow = 1700000000000
+      const makeStore = (cfg: string) =>
+        new Opal({
+          appName,
+          configPath: cfg,
+          encryptionKeyEnvVar: 'OPAL_TEST_KEY',
+          deterministicSeed: 42,
+          nowProvider: () => baseNow,
+        })
+
+      const configPathA = path.join(tempDir, 'det-a.enc')
+      const configPathB = path.join(tempDir, 'det-b.enc')
+
+      const storeA = makeStore(configPathA)
+      await storeA.load()
+      await storeA.set('same', 'data')
+
+      const storeB = makeStore(configPathB)
+      await storeB.load()
+      await storeB.set('same', 'data')
+
+      const fileA = await fs.readFile(configPathA, 'utf-8')
+      const fileB = await fs.readFile(configPathB, 'utf-8')
+      expect(fileA).toBe(fileB)
+    })
+
     it('should write store with unix-safe 0600 permissions', async () => {
       const store = new Opal({
         appName: 'perm-app',

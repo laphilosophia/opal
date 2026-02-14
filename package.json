@@ -1,7 +1,7 @@
 {
   "name": "@laphilosophia/opal",
-  "version": "1.1.0",
-  "description": "Secure, atomic, hybrid configuration store",
+  "version": "2.0.0",
+  "description": "Secure, atomic, hybrid configuration store for Node.js applications",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

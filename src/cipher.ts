@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'crypto'
 import { ALGORITHM, ENC_KEY_INFO, IV_LENGTH } from './constants.js'
-import type { EncryptedPayload } from './types.js'
+import type { CipherEncryptOptions, EncryptedPayload } from './types.js'
 
 export class Cipher {
   static deriveEncryptionKey(masterKey: Buffer, salt: Buffer): Buffer {
@@ -13,8 +13,13 @@ export class Cipher {
   /**
    * Encrypts plaintext using AES-256-GCM with AAD context binding.
    */
-  static encrypt(text: string, key: Buffer, context: string): EncryptedPayload {
-    const iv = randomBytes(IV_LENGTH)
+  static encrypt(
+    text: string,
+    key: Buffer,
+    context: string,
+    options?: CipherEncryptOptions,
+  ): EncryptedPayload {
+    const iv = options?.iv ?? randomBytes(IV_LENGTH)
     const cipher = createCipheriv(ALGORITHM, key, iv)
 
     // AAD: Context Binding (Prevent Cross-App Replay)
