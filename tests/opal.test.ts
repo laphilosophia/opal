@@ -549,6 +549,72 @@ describe('Crypthold', () => {
       expect(stat.mode & 0o777).toBe(0o600)
     })
 
+    it('should reject deterministicSeed outside test environment', async () => {
+      const previous = process.env.NODE_ENV
+      process.env.NODE_ENV = 'production'
+
+      try {
+        expect.assertions(2)
+        try {
+          new Crypthold({
+            appName: 'unsafe-deterministic',
+            configPath,
+            encryptionKeyEnvVar: 'CRYPTHOLD_TEST_KEY',
+            deterministicSeed: 1,
+          })
+          expect.fail('Should have thrown')
+        } catch (error) {
+          expect(error).toBeInstanceOf(CryptholdError)
+          expect((error as CryptholdError).code).toBe('CRYPTHOLD_UNSAFE_OPTION')
+        }
+      } finally {
+        process.env.NODE_ENV = previous
+      }
+    })
+
+    it('should support metadata conflict detection mode', async () => {
+      const appName = 'metadata-conflict-app'
+      const metadataStore = new Crypthold({
+        appName,
+        configPath,
+        encryptionKeyEnvVar: 'CRYPTHOLD_TEST_KEY',
+        conflictDetection: 'metadata',
+      })
+
+      await metadataStore.load()
+      await metadataStore.set('base', true)
+      expect(metadataStore.get('base')).toBe(true)
+    })
+
+    it('should create missing parent directory when watch is called first', async () => {
+      const nestedPath = path.join(tempDir, 'watch', 'nested', 'store.enc')
+      const appName = 'watch-dir-create'
+
+      const writer = new Crypthold({
+        appName,
+        configPath: nestedPath,
+        encryptionKeyEnvVar: 'CRYPTHOLD_TEST_KEY',
+      })
+      const watcherStore = new Crypthold({
+        appName,
+        configPath: nestedPath,
+        encryptionKeyEnvVar: 'CRYPTHOLD_TEST_KEY',
+      })
+
+      const changed = new Promise<Record<string, unknown>>((resolve) => {
+        const stop = watcherStore.watch((data) => {
+          stop()
+          resolve(data)
+        })
+      })
+
+      await writer.load()
+      await writer.set('ready', true)
+
+      const data = await changed
+      expect(data.ready).toBe(true)
+    })
+
     it('should create missing parent directory before lock acquisition', async () => {
       const nestedPath = path.join(tempDir, 'missing', 'nested', 'store.enc')
 

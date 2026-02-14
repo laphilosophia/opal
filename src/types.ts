@@ -23,6 +23,8 @@ export interface CryptholdOptions {
   keyIds?: string[]
   /** Enable deterministic mode for tests */
   deterministicSeed?: number
+  /** Control conflict detection strictness. strict = metadata + content hash, metadata = mtime/size only */
+  conflictDetection?: 'strict' | 'metadata'
   /** Override clock source for deterministic tests */
   nowProvider?: () => number
 }

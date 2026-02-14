@@ -55,6 +55,8 @@ store.watch(
 )
 ```
 
+> `deterministicSeed` is intended for tests only and now throws outside `NODE_ENV=test`.
+
 ### Key Rotation
 
 Transition to a new master key without data loss:
@@ -112,15 +114,16 @@ node --experimental-strip-types examples/filename.ts
 
 ### `new Crypthold(options)`
 
-| Option                   | Type                  | Description                                              |
-| :----------------------- | :-------------------- | :------------------------------------------------------- |
-| `appName`                | `string`              | **Required.** Service name for Keychain and AAD context. |
-| `configPath`             | `string`              | Custom path for the encrypted store file.                |
-| `encryptionKeyEnvVar`    | `string`              | Env var name for the primary master key.                 |
-| `encryptionKeySetEnvVar` | `string`              | Env var for multi-key sets (`id1:hex,id2:hex`).          |
-| `maxFileSizeBytes`       | `number`              | Limit to prevent memory blow (default: 10MB).            |
-| `durability`             | `"normal" \| "fsync"` | Atomic write strategy (default: `"normal"`).             |
-| `lockTimeoutMs`          | `number`              | Max wait time for lock acquisition (default: 5s).        |
+| Option                   | Type                     | Description                                              |
+| :----------------------- | :----------------------- | :------------------------------------------------------- |
+| `appName`                | `string`                 | **Required.** Service name for Keychain and AAD context. |
+| `configPath`             | `string`                 | Custom path for the encrypted store file.                |
+| `encryptionKeyEnvVar`    | `string`                 | Env var name for the primary master key.                 |
+| `encryptionKeySetEnvVar` | `string`                 | Env var for multi-key sets (`id1:hex,id2:hex`).          |
+| `maxFileSizeBytes`       | `number`                 | Limit to prevent memory blow (default: 10MB).            |
+| `durability`             | `"normal" \| "fsync"`    | Atomic write strategy (default: `"normal"`).             |
+| `lockTimeoutMs`          | `number`                 | Max wait time for lock acquisition (default: 5s).        |
+| `conflictDetection`      | `"strict" \| "metadata"` | Conflict check mode (`strict` default).                  |
 
 ### Methods
 
@@ -145,6 +148,7 @@ node --experimental-strip-types examples/filename.ts
 | `CRYPTHOLD_LOCK_TIMEOUT`   | Failed to acquire process lock within timeout.                |
 | `CRYPTHOLD_FILE_TOO_LARGE` | Store exceeds `maxFileSizeBytes` limit.                       |
 | `CRYPTHOLD_KEY_NOT_FOUND`  | Master key is missing from environment/keychain.              |
+| `CRYPTHOLD_UNSAFE_OPTION`  | A test-only option was used in a non-test environment.        |
 
 ## Security
 

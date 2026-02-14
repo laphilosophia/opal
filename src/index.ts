@@ -36,6 +36,13 @@ export class Crypthold {
     this.options = options
 
     if (typeof options.deterministicSeed === 'number') {
+      if (process.env.NODE_ENV !== 'test') {
+        throw new CryptholdError(
+          'deterministicSeed is test-only and cannot be used outside NODE_ENV=test.',
+          'CRYPTHOLD_UNSAFE_OPTION',
+        )
+      }
+
       this.deterministicState = options.deterministicSeed >>> 0
     }
 
@@ -205,6 +212,8 @@ export class Crypthold {
     const base = path.basename(this.filePath)
     const debounceMs = options?.debounceMs ?? 100
     let timer: NodeJS.Timeout | null = null
+
+    fsSync.mkdirSync(dir, { recursive: true })
 
     const watcher = fsSync.watch(dir, async (_event, filename) => {
       if (filename && filename.toString() !== base) {
@@ -616,6 +625,10 @@ export class Crypthold {
 
     if (expected.mtimeMs !== currentStat.mtimeMs || expected.size !== currentStat.size) {
       throw new CryptholdError('Encrypted store changed since last load.', 'CRYPTHOLD_CONFLICT')
+    }
+
+    if (this.options.conflictDetection === 'metadata') {
+      return
     }
 
     const current = await this.readFileSnapshot()
