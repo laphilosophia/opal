@@ -4,6 +4,10 @@ import type { CipherEncryptOptions, EncryptedPayload } from './types.js'
 
 export class Cipher {
   static deriveEncryptionKey(masterKey: Buffer, salt: Buffer): Buffer {
+    masterKey = Buffer.from(masterKey) // Ensure it's a Buffer
+    if (masterKey.length < 32) {
+      throw new Error('Crypthold: Master key must be at least 32 bytes for AES-256-GCM')
+    }
     return Buffer.from(hkdfSync('sha256', masterKey, salt, Buffer.from(ENC_KEY_INFO, 'utf8'), 32))
   }
 
